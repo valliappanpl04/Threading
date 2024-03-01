@@ -7,6 +7,7 @@
 #include<ctype.h>
 int cnt=0, missed=0;
 pthread_rwlock_t countlock;
+char **wordarr;
 // constants
 int pages=26, pagelen=200000, datasetlength=50000;
 
@@ -54,9 +55,10 @@ void* initDictionary(){
 }
 
 // adds the word-menaing pair to the dictionary
-int add(void* word){
-    int pageNumber=tolower(((char*)word)[0])-'a';
+int add(void* word, int pageNumber){
+    // int pageNumber=tolower(((char*)word)[0])-'a';
     pthread_rwlock_wrlock(&pagelock[pageNumber]);
+    // sleep(1);
     if(dict[pageNumber].wordcount==pagelen){
         pthread_rwlock_unlock(&pagelock[pageNumber]);
         return 0;
@@ -81,6 +83,7 @@ int add(void* word){
 // gets the page number and bucket of a particular word in the table
 int find(void* word){
     int pageNumber=tolower(((char*)word)[0])-'a';
+
     pthread_rwlock_wrlock(&pagelock[pageNumber]);
     for(int i=0;i<pagelen;i++){
         if(dict[pageNumber].flag[i]==1){
@@ -89,7 +92,6 @@ int find(void* word){
             }
         }
     }
-
     pthread_rwlock_unlock(&pagelock[pageNumber]);
     return -1;
 }
@@ -109,6 +111,7 @@ int delete(void *word){
 }
 
 int deletepage(int pagenumber){
+    pthread_rwlock_wrlock(&pagelock[pagenumber]);
     for(int i=0;i<pagelen;i++){
         if(dict[pagenumber].flag[i]==1){
             dict[pagenumber].flag[i]=0;
@@ -116,6 +119,7 @@ int deletepage(int pagenumber){
         }
     }
     dict[pagenumber].wordcount=0;
+    pthread_rwlock_unlock(&pagelock[pagenumber]);
 }
 
 // prints the entire dictionary
@@ -137,35 +141,36 @@ void *print(){
     return NULL;
 }
 
-int main(){
+void* addfunc(int index){
+    for(int i=0;i<(datasetlength/4) && (i+index)<datasetlength;i++){
+    // int pageNumber=tolower(((char*)word)[0])-'a';
+    int pagenumber=tolower(((char*)wordarr[i+index])[0])-'a';
+        add(wordarr[i+index], pagenumber);
+    }
+    return NULL;
+}
 
+int main(){
     struct timeval start, end;
     pthread_rwlock_init(&countlock, NULL);
     initDictionary();
-    char **wordarr=(char**)malloc(sizeof(char*)*datasetlength);
+    wordarr=(char**)malloc(sizeof(char*)*datasetlength);
     for(int i=0;i<datasetlength;i++){
         wordarr[i]=generateword();
     } 
-
-    // creating thread
-    pthread_t *addingthreads=(pthread_t*)malloc(sizeof(pthread_t)*datasetlength);
-    // pthread_t addingthreads[datasetlength];
+    pthread_t *addingthreads=(pthread_t*)malloc(sizeof(pthread_t)*4);
 
     gettimeofday(&start, NULL);
 
-    for(int i=0;i<datasetlength;i++){
-        int k;
-        pthread_create(&addingthreads[i], &k, add, wordarr[i]);
-        // add(wordarr[i]);
-    }
-    for(int i=0;i<datasetlength;i++){
-        pthread_join(addingthreads[i], NULL);
-    }
+    for(int j=0;j<4;j++)
+        pthread_create(&addingthreads[j], NULL, addfunc, (datasetlength/4)*j);
+    for(int j=0;j<4;j++)
+        pthread_join(addingthreads[j], NULL);
+    
     gettimeofday(&end, NULL);
     printf("Elements added : %d\n",cnt);
     printf("Time taken to add %d elements is : %.ld microseconds\n", datasetlength, (end.tv_sec-start.tv_sec)*1000000L+(end.tv_usec-start.tv_usec));
     fflush(stdout);
-    
     // for(int i=0;i<200;i++){
     //     int index=rand()%datasetlength;
     //     delete(wordarr[index]);
@@ -173,3 +178,8 @@ int main(){
     // deletepage(25);
     // print();
 }
+
+// 16689
+// 16350
+// 16162
+// 68917

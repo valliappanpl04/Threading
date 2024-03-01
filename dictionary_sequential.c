@@ -139,7 +139,7 @@ int main(){
         add(&dict, wordarr[i]);
     }
     gettimeofday(&end, NULL);
-    printf("%d\n", cnt);
+    printf("Number of words added : %d\n", cnt);
     printf("Time taken to add %d elements is : %.ld microseconds\n", datasetlength, (end.tv_sec-start.tv_sec)*1000000L+(end.tv_usec-start.tv_usec));
     fflush(stdout);
     // for(int i=0;i<200;i++){
